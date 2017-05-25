@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Don't kill the baby yoshi</title>
+    <script src="sprite.js"></script>
+    
+    <style>
+        canvas {
+            position: absolute;
+            top: 0px;
+            bottom: 0px;
+            left: 0px;
+            right: 0px;
+            margin: auto;
+        }
+    </style>
+
+</head>
+<body>
+    <script>
+
+        //variables of the game 
+        var canvas, ctx, height, width, frames = 0, maxJumps = 3, constSpeed = 6, state, record, img, 
+        
+        points = [5, 10, 15, 20, 35, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105, 110, 115, 120, 125, 130, 135, 140, 145, 150,
+        155, 160, 165, 170, 175, 180, 185, 190, 195, 200, 205, 210, 215, 220, 225, 230, 235, 240, 245, 250, 255, 260, 265, 270, 275, 280, 285, 290, 295, 300],
+
+        fase=0,
+
+        //createLikeEnum
+        states = {
+            play: 0,
+            playing: 1,
+            loose: 2
+        },
+
+        floor={
+            y:550,
+            sizeHeight: 50,
+            color:"#D2B48C",
+
+            update: function(){
+                this.x -= constSpeed;
+                if(this.x <= -30)
+                    this.x += 30;
+            },
+
+            draw: function(){
+                ctx.fillStyle = this.color;
+                ctx.fillRect(0, this.y, width, this.sizeHeight);
+            }
+        },
+
+        pad={
+            x:50,
+            y:0,
+            sizeHeight: 50,
+            sizeWidth: 50,
+            color: "#ff4e4e",
+            gravity: 1.6,
+            speed: 0,
+            jumpStrong: 25,
+            qntJump:0,
+            score: 0,
+
+            updatePad: function(){
+                this.speed += this.gravity;
+                this.y += this.speed; 
+
+                if(this.y > floor.y - this.sizeHeight && state != states.loose){
+                    this.y = floor.y - this.sizeHeight;
+                    this.qntJump = 0;
+                    this.speed = 0;
+
+                }
+            },
+
+            draw: function(){
+                //ctx.fillStyle = this.color;
+                //ctx.fillRect(this.x, this.y, this.sizeWidth, this.sizeHeight);
+
+                //Draw character
+                var imagem = new Image();
+                imagem.src = "imgs/5.png";
+                ctx.drawImage(imagem, this.x, this.y, this.sizeWidth, this.sizeHeight);
+            },
+
+            reset: function(){
+                this.speed = 0;
+                this.y = 0;
+
+                if(this.score > record){
+                    localStorage.setItem("record", this.score);
+                    record = this.score; 
+                }
+
+                this.score = 0;
+
+                constSpeed = 6;
+                fase = 0;
+                jumpStrong = 25;
+            },
+
+            jump: function(){
+                if(this.qntJump < maxJumps){
+                    this.speed =- this.jumpStrong
+                    this.qntJump++;
+                }
+            }
+        },
+        
+        hurdle={
+
+            _hurdles: [],
+           // _hurdleColors: ["#ffbc1c","#ff1c1c","#ff85e1","#52a7ff","#78ff5d"],
+            scored: false,
+            timeInsert: 0,
+
+            insert: function(){
+                this._hurdles.push({
+                    x:width,
+                    hurdleWidth: 55 + Math.floor(30 * Math.random()),
+                    //hurdleWidth: 50,
+                    hurdleHeight: 55 + Math.floor(115 * Math.random()),
+                   // hurdleColor: this._hurdleColors[Math.floor(5* Math.random())]
+                });
+
+                this.timeInsert = 40 + Math.floor(40 * Math.random());
+            },
+
+            updateHurdle: function (){
+
+                if(this.timeInsert == 0){
+                    this.insert();
+                }
+                else{
+                    this.timeInsert --;
+                }
+
+                for(var i = 0, size = this._hurdles.length; i < size; i++){
+                    var hurdle = this._hurdles[i];
+                    hurdle.x -= constSpeed;
+
+                    if(pad.x < hurdle.x + hurdle.hurdleWidth && pad.x + pad.sizeWidth >= hurdle.x && pad.y + pad.sizeHeight >= floor.y - hurdle.hurdleHeight){
+                        state = states.loose;
+                    }
+
+                    else if(hurdle.x <= 0 && !hurdle.scored){
+                        pad.score ++;
+                        hurdle.scored = true;
+
+                        if(fase < points.length && pad.score == points[fase]){
+                            newFase();
+                        }
+                    }
+
+                    else if(hurdle.x <= -hurdle.hurdleWidth){
+                        this._hurdles.splice(i, 1);
+                        size --;
+                        i --;
+                    }
+                }
+
+            },
+        
+            cleanArray: function(){
+                this._hurdles = [];
+            },
+
+            drawHurdle: function(){
+                for (var i = 0, size = this._hurdles.length; i<size; i++){
+                    var hurdle = this._hurdles[i];
+                    //ctx.fillStyle = hurdle.hurdleColor;
+                    //ctx.fillRect(hurdle.x, floor.y - hurdle.hurdleHeight, hurdle.hurdleWidth, hurdle.hurdleHeight);
+
+                    var imagem2 = new Image();
+                    imagem2.src = "imgs/7.png"
+                    ctx.drawImage(imagem2, hurdle.x, floor.y - hurdle.hurdleHeight, hurdle.hurdleWidth+10, hurdle.hurdleHeight+10);
+                }
+            }
+
+        };
+
+        //Check if the player clicked
+        function click(event){
+            if(state == states.playing){
+                pad.jump(); 
+            }
+
+            else if(state == states.play){
+                 state = states.playing;
+            }
+
+            else if(state == states.loose && pad.y >= 2 * height){
+                hurdle.cleanArray();
+                state = states.play
+                pad.reset();
+            }
+        }
+
+        function newFase(){
+            constSpeed = constSpeed + 2;
+            fase++;
+        }
+
+        //Main function
+        function main(){
+            height = window.innerHeight;
+            width = window.innerWidth;
+
+            if(width >= 500){
+                width = 900;
+                height = 600;
+            }
+
+            canvas = document.createElement("canvas"); //creating element canvas
+            canvas.width = width;
+            canvas.height = height;
+            canvas.style.border = "1px solid #000"; //balck border
+
+            ctx = canvas.getContext("2d"); //draw in 2 dimensions
+            document.body.appendChild(canvas);
+            document.addEventListener("mousedown", click);
+
+            state = states.play;
+
+            record = localStorage.getItem("record");
+            if(record == null){
+                record = 0;
+            }
+
+            img = new Image();
+            img.src = "imgs/1.png";
+
+            execute();
+        }
+
+        //Execute the game
+        function execute(){
+            update();
+            draw();
+            window.requestAnimationFrame(execute);
+        }
+
+        //Update the game in CANVAS
+        function update(){
+            frames ++ ;
+            pad.updatePad();
+
+            if(state == states.playing){
+                hurdle.updateHurdle();
+            }
+        }
+
+        //Draw the character, backgroun, all stuffs
+        function draw(){
+            //draw background
+           // ctx.fillStyle = "#50beff";
+            //ctx.fillRect (0, 0, width, height);
+
+            background.drawSprite(0,0,900,600);
+            
+           
+            //draw score in CANVAS
+            ctx.fillStyle = "#fff";     
+            ctx.font = "50px Arial";
+            ctx.fillText(pad.score, 30, 68);
+            
+            if(state == states.play){
+                ctx.fillStyle = "black";
+                ctx.font = "70px Arial black";
+                ctx.fillRect(width/2-50, height/2-50, 100, 0);
+                ctx.fillText("PLAY", 780, 70, 100, 200);
+            }
+
+            else if (state == states.loose){
+                ctx.fillStyle = "red";
+                ctx.font = "50px Arial black";
+                ctx.fillText("AGAIN", 400, 400, 100, 200);
+                ctx.fillRect(width/2-50, height/2-50, 100, 100);
+
+                //draw score in center
+                ctx.save();
+                ctx.translate(width/2, height/2);
+                ctx.fillStyle = "#fff";
+
+                if(pad.score > record){
+                    ctx.fillText("PARABÉNS! Novo Record!", -300, -65)
+                }
+
+                else if (record < 10)
+                    ctx.fillText("Record " + record, -99, -65);
+                
+                else if (record >=10 && record <100)
+                    ctx.fillText("Record " + record, -112, -65);
+                
+                else 
+                    ctx.fillText("Record " + record, -125, -65);   
+
+                if(pad.score <10)
+                    ctx.fillText(pad.score, -13, 19 );
+
+                else if(pad.score >= 10 && pad.score < 100)
+                    ctx.fillText(pad.score, -26, 19 );
+
+                else
+                     ctx.fillText(pad.score, -39, 19 );
+
+                ctx.restore(); 
+            }
+
+            else if (state == states.playing){
+                //draw hurdle
+                hurdle.drawHurdle();
+            }
+
+            //draw floor
+            floor.draw();
+            floor.update();
+
+            //draw pad
+            pad.draw();
+        }
+        
+        //start the game
+        main();
+
+    </script>
+    
+</body>
+</html>
